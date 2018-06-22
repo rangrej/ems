@@ -1,0 +1,48 @@
+node {
+ 	// Clean workspace before doing anything
+    deleteDir()
+
+    try {
+        stage ('Clone') {
+        	checkout scm
+        }
+	stage ('SonarCube') {
+        	// withSonarQubeEnv('SonarCube') {
+		// 	sh 'mvn org.sonarsource.scanner.maven:sonar-maven-plugin:3.2:sonar'
+    		//}
+        }
+	
+        stage ('Build') {
+        	 sh "mvn clean install"
+		 "echo 'shell scripts to build project...'"
+        }
+        stage ('Tests') {
+	        parallel 'static': {
+	             "echo 'shell scripts to run static tests...'"
+	        },
+	        'unit': {
+		     sh "mvn test"
+	             "echo 'shell scripts to run unit tests...'"
+	        },
+	        'integration': {
+		     sh "mvn verify"
+	             "echo 'shell scripts to run integration tests...'"
+	        }
+        }
+	stage ('Code Coverage') {
+             
+	     	  step([$class: 'JacocoPublisher', 
+		      execPattern: 'target/*.exec',
+		      classPattern: 'target/classes',
+		      sourcePattern: 'src/main/java',
+		      exclusionPattern: 'src/test*'
+		])
+      	}
+      	stage ('Deploy') {
+             "echo 'shell scripts to deploy to server...'"
+      	}
+    } catch (err) {
+        currentBuild.result = 'FAILED'
+        throw err
+    }
+}
